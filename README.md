@@ -1,11 +1,13 @@
 # LLM Routing Pipeline
 
-Pipeline for **LLM performance estimation** and **routing** (per-query cost/performance sweeps and batch GPU/cost optimization). Training and evaluation use **Dataset 1** from Song et al. (2025) (IRT-Router); place those files under `data/irt_data/` as described in [`data/README.md`](data/README.md).
+Pipeline for **LLM performance estimation** and **routing** (per-query cost/performance sweeps and batch GPU/cost optimization). Training and evaluation use **Dataset 1** from Song et al. (2025) (IRT-Router), stored under `data/irt_data/` and tracked with **Git LFS** (see [`data/README.md`](data/README.md)).
 
 ## Quick start
 
 ```bash
 cd llm_routing
+git lfs install
+git lfs pull   # materialize Dataset 1 CSVs if clone used LFS pointers only
 python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -15,21 +17,21 @@ Run all CLI examples **from this directory** (`llm_routing/`) so imports and pat
 
 ## What is committed
 
-Large artifacts are **gitignored** so the repo stays pushable to hosts with file-size limits:
+- **`data/irt_data/*.csv`** — Dataset 1, via **Git LFS** (install [Git LFS](https://git-lfs.com) before clone/push).
+- **Tracked in plain Git:** Python sources, `notebooks/`, `utils/map/*.csv`, `data/README.md`.
 
-- `data/irt_data/*.csv` — Dataset 1 (see `data/README.md`)
+**Gitignored** (large or regenerable; not in version control):
+
 - `utils/bert_embeddings/*.pkl`, `utils/cold/*.pkl`, `utils/relevance/*.pkl` — embeddings / auxiliary pickles used by training and `test_models`
 - `results/` — trained snapshots, performance-estimate CSVs, routing outputs (reproduced by the steps below)
-
-**Tracked:** Python sources, `notebooks/`, `utils/map/*.csv`, and small docs under `data/`.
 
 ## Repository structure
 
 ```
 llm_routing/
 ├── data/
-│   ├── README.md           # Where to put Dataset 1 CSVs
-│   └── irt_data/           # (local only; gitignored)
+│   ├── README.md           # Dataset 1 (Git LFS)
+│   └── irt_data/           # train.csv, test1.csv, test2.csv (Git LFS)
 ├── train/                  # Training scripts (MIRT, XGBoost)
 ├── test/                   # Performance estimates on test splits
 ├── routing/                # Per-query + batch routing

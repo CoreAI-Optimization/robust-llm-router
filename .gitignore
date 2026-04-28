@@ -26,9 +26,6 @@ results/
 # Trained router snapshots
 *.snapshot
 
-# Large tabular data (Dataset 1 — obtain separately; see data/README.md)
-data/irt_data/
-
 # Large embedding / auxiliary pickles (regenerate or obtain separately)
 utils/bert_embeddings/*.pkl
 utils/cold/*.pkl
