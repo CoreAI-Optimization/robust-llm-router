@@ -20,11 +20,6 @@ build/
 .idea/
 .vscode/
 
-# Generated experiment outputs (reproducible from scripts)
-results/
-
-# Trained router snapshots
-*.snapshot
 
 # Dataset 1 CSVs — download from IRT-Router (see data/README.md); not committed
 data/irt_data/

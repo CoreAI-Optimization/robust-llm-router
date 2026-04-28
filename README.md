@@ -109,7 +109,9 @@ Writes optimization and baseline CSVs under `results/routing_results/` (see `rou
 
 ## Notebooks
 
-Prefer running Jupyter with **cwd = `llm_routing/notebooks/`** (or `llm_routing/`) so path setup cells resolve; notebooks are checked in **without stored outputs**.
+Prefer running Jupyter with **cwd = `llm_routing/notebooks/`** (or `llm_routing/`) so path setup cells resolve. Notebooks are checked in **with executed outputs** (text and tables; figures may also be saved as PDFs under `results/routing_results/`).
+
+To **re-run** them non-interactively (optionally skipping long optimization/sweep cells while still refreshing plots), see [`notebooks/README.md`](notebooks/README.md).
 
 ## Parent checkout (`query-routing`)
 
