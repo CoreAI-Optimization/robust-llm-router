@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+.venv/
+venv/
+.env
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Generated experiment outputs (reproducible from scripts)
+results/
+
+# Trained router snapshots
+*.snapshot
+
+# Large tabular data (Dataset 1 — obtain separately; see data/README.md)
+data/irt_data/
+
+# Large embedding / auxiliary pickles (regenerate or obtain separately)
+utils/bert_embeddings/*.pkl
+utils/cold/*.pkl
+utils/relevance/*.pkl
