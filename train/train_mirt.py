@@ -94,7 +94,15 @@ if __name__ == "__main__":
     knowledge_n = 25
         
 
-    logging.getLogger().setLevel(logging.INFO)
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif getattr(torch.backends, "mps", None) is not None and torch.backends.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
+    logging.info("Using device: %s", device)
+
     cdm = MIRT(llm_dim, query_dim, knowledge_n)
-    cdm.train(train_set, test_set, epoch=9, device="cuda")
+    cdm.train(train_set, test_set, epoch=9, device=device)
     cdm.save(MODELS_DIR / f"mirt_{emb_name}.snapshot")
