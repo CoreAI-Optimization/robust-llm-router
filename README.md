@@ -72,7 +72,7 @@ Outputs: snapshots under `results/trained_models/` (gitignored).
 **MIRT:**
 
 ```bash
-python3 -m test.test_models --router mirt --emb_name bert --test_path test1 --a 0.8
+python3 -m test.test_models --router mirt --emb_name bert --test_path test1
 ```
 
 **XGBoost (bootstrap):**

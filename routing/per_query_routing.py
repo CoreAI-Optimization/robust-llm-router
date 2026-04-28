@@ -7,7 +7,7 @@ import ast
 import pandas as pd
 import numpy as np
 
-from test.test_models import compute_mirt_performance_estimates
+from test.test_models import evaluate_routing
 
 LLM_ROUTING_DIR = Path(__file__).parent.parent
 PERF_EST_DIR = LLM_ROUTING_DIR / "results" / "performance_estimates"
@@ -21,27 +21,22 @@ def sweep_performance_cost(
     test_path='test1',
     prediction_labels=None,
     a_values=None,
-    n_bootstrap=100,
-    uncertainty_penalty=0.0,
     output_csv=None,
-    **kwargs
 ):
     """
     Sweep over a values (performance weight) for different prediction labels.
 
     Args:
-        routing_df: Precomputed routing DataFrame (from compute_xgboost_bootstrap_routing etc.)
-        router: Router name passed to main(); None is valid when precomputed_routing_df is used.
-        emb_name: Embedding type (e.g. 'bert').
-        test_path: Test split name (e.g. 'test1').
-        prediction_labels: Columns in routing_df to use as the performance prediction.
+        routing_df: Precomputed performance-estimates DataFrame
+            (from compute_mirt/xgboost/knn_performance_estimates).
+        router: Router label used only for logging.
+        emb_name: Embedding type, used for logging (e.g. 'bert').
+        test_path: Test split name passed to evaluate_routing (e.g. 'test1').
+        prediction_labels: Columns in routing_df to use as the performance signal.
             Default: ['main_model_prediction', 'bootstrap_quantile_2_5']
-        a_values: Array of performance-weight values to sweep (a=1 → pure performance).
+        a_values: Performance-weight values to sweep (a=1 → pure performance).
             Default: np.linspace(0, 1, 11)
-        n_bootstrap: Passed through to main() for bootstrap routers.
-        uncertainty_penalty: Passed through to main().
         output_csv: If given, save a summary CSV to this path.
-        **kwargs: Additional keyword arguments forwarded to main().
 
     Returns:
         dict: {label: {'a_values': [...], 'performance': [...], 'cost': [...]}}
@@ -62,16 +57,13 @@ def sweep_performance_cost(
 
         for a in a_values:
             try:
-                avg_perf, total_cost, opt_cost, chosen_llms, _ = compute_mirt_performance_estimates(
-                    emb_name=emb_name,
+                avg_perf, total_cost, opt_cost, chosen_llms = evaluate_routing(
+                    routing_df=routing_df.copy(),
                     test_path=test_path,
                     a=a,
-                    lamda=0.0,
                     task=None,
                     candidate_llms=None,
-                    precomputed_routing_df=routing_df.copy(),
                     prediction_label=label,
-                    **kwargs
                 )
                 results[label]['a_values'].append(a)
                 results[label]['performance'].append(avg_perf)
@@ -135,6 +127,5 @@ if __name__ == "__main__":
                 test_path=test_name,
                 prediction_labels=[prediction_label],
                 a_values=np.linspace(0.0, 1.0, 11),
-                uncertainty_penalty=0.0,
                 output_csv=RESULTS_DIR / f'results_per_query_{router_name}_{prediction_label}_{test_name}.csv'
             )

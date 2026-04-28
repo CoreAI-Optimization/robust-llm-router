@@ -14,8 +14,6 @@ BASE_PATH = Path(__file__).parent
 MODELS_PATH = BASE_PATH.parent / "results" / "trained_models"
 DATA_PATH = BASE_PATH.parent / "data" / "irt_data"
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 config = {
     'glm_4_air': {
         'input_cost': 0.137e-6,
@@ -175,27 +173,15 @@ def compute_xgboost_bootstrap_performance_estimates(emb_name, test_path, task=No
     llm_embeddings, query_embeddings, cold_embeddings, relevance_embeddings, llm_id_map, query_id_map = load_embeddings(emb_name)
     
     # Determine dimensions
-    if emb_name == "open":
-        query_dim = 1536
-        llm_dim = 1536
-    elif emb_name == "zhipu":
-        query_dim = 512
-        llm_dim = 512
-    elif emb_name == "bge":
-        query_dim = 1024
-        llm_dim = 1024
-    elif emb_name == "bert":
-        query_dim = 768
-        llm_dim = 768
-    
+    dim_map = {"open": 1536, "zhipu": 512, "bge": 1024, "bert": 768}
+    llm_dim = query_dim = dim_map.get(emb_name, 768)
+
     # Load test data
     test_data = pd.read_csv(DATA_PATH / f"{test_path}.csv")
     if task is not None:
         test_data = test_data[test_data['task'] == task]
         print(f"Filtered to task: {task}")
     
-    # Get all LLMs
-    llms = list(config.keys())
     if candidate_llms is None:
         candidate_llms = llms
     else:
@@ -378,7 +364,7 @@ def compute_knn_bootstrap_performance_estimates(emb_name, test_path, task=None, 
     # Pre-compute bootstrap samples and their valid vectors
     print(f"k-NN Bootstrap: Pre-computing {n_bootstrap} bootstrap samples...")
     bootstrap_train_samples = []
-    for bootstrap_idx in range(n_bootstrap):
+    for _ in range(n_bootstrap):
         # Bootstrap sample of training questions (sample with replacement)
         bootstrap_sample = np.random.choice(
             train_questions, 
@@ -473,8 +459,7 @@ def compute_knn_bootstrap_performance_estimates(emb_name, test_path, task=None, 
             # Compute statistics from bootstrap distribution
             if len(bootstrap_knn_preds) > 0:
                 bootstrap_mean = np.mean(bootstrap_knn_preds)
-                std_pred = np.std(bootstrap_knn_preds)
-                
+
                 # Calculate quantiles
                 quantile_2_5 = np.percentile(bootstrap_knn_preds, 2.5)
                 quantile_5 = np.percentile(bootstrap_knn_preds, 5)
@@ -568,18 +553,20 @@ def load_train_query_embeddings(emb_name):
 
 
 
-def compute_mirt_performance_estimates(emb_name, test_path, a, lamda=0.0, task=None, candidate_llms=None,
-                     precomputed_routing_df=None, prediction_label='performance_prediction'):
+def compute_mirt_performance_estimates(emb_name, test_path, task=None, lamda=0.0, candidate_llms=None):
     """
-    MIRT-based routing: for each test question, pick the best LLM by
-    a * mirt_prediction - (1-a) * cost.
+    Compute MIRT performance predictions for all test questions and candidate LLMs.
 
-    If precomputed_routing_df is provided, skips model inference and reads
-    predictions from the dataframe — useful for sweeping a/lambda values without
-    re-running the model.
+    Args:
+        emb_name: Embedding name (e.g., 'bert', 'open')
+        test_path: Test split name (e.g., 'test1')
+        task: Optional task filter
+        lamda: Cold-start mixing weight
+        candidate_llms: LLMs to evaluate (None = all)
 
     Returns:
-        avg_performance, total_cost, opt_cost, chosen_llms, routing_df
+        DataFrame with columns: question, llm_name, llm_cost,
+        performance_prediction, actual_performance
     """
     if candidate_llms is None:
         candidate_llms = llms
@@ -594,83 +581,7 @@ def compute_mirt_performance_estimates(emb_name, test_path, a, lamda=0.0, task=N
         print(f"Filtered to task: {task}")
 
     performance_lookup = {(r['question'], r['llm']): r['performance'] for _, r in test_data.iterrows()}
-    input_tokens_lookup = {(r['question'], r['llm']): r['input_tokens'] for _, r in test_data.iterrows()}
-    output_tokens_lookup = {(r['question'], r['llm']): r['output_tokens'] for _, r in test_data.iterrows()}
 
-    b = -(1 - a)
-    final_performance, final_cost, chosen_llms_out, opt_cost = [], [], [], []
-
-    # --- precomputed path (router-agnostic: just reads predictions from df) ---
-    if precomputed_routing_df is not None:
-        print("Using precomputed routing dataframe...")
-        routing_df = precomputed_routing_df
-
-        required_cols = ['question', 'llm_name', 'llm_cost']
-        missing = [c for c in required_cols if c not in routing_df.columns]
-        if missing:
-            raise ValueError(f"Precomputed routing dataframe missing columns: {missing}")
-        if prediction_label not in routing_df.columns and 'performance_prediction' not in routing_df.columns:
-            raise ValueError(f"Column '{prediction_label}' not found in routing dataframe")
-
-        if task is not None:
-            valid_qs = test_data['question'].unique()
-            routing_df = routing_df[routing_df['question'].isin(valid_qs)]
-
-        for q_idx, question in enumerate(routing_df['question'].unique()):
-            if (q_idx + 1) % 1000 == 0:
-                print(f"Processing question {q_idx + 1}...")
-
-            records = routing_df[routing_df['question'] == question].to_dict('records')
-            if not records:
-                continue
-
-            best_record, best_score = None, float('-inf')
-            for rec in records:
-                if prediction_label in rec:
-                    perf_pred = rec[prediction_label]
-                elif 'performance_prediction' in rec:
-                    perf_pred = rec['performance_prediction']
-                else:
-                    raise ValueError(f"Column '{prediction_label}' not found in routing dataframe")
-                score = a * perf_pred + b * config[rec['llm_name']]["output_cost"] * 1e5
-                if score > best_score:
-                    best_score, best_record = score, rec
-
-            if best_record is None:
-                continue
-            best_llm = best_record['llm_name']
-            perf = performance_lookup.get((question, best_llm))
-            in_t = input_tokens_lookup.get((question, best_llm))
-            out_t = output_tokens_lookup.get((question, best_llm))
-            if perf is None or in_t is None or out_t is None:
-                continue
-
-            final_performance.append(perf)
-            final_cost.append(in_t * config[best_llm]["input_cost"] + out_t * config[best_llm]["output_cost"])
-            chosen_llms_out.append(best_llm)
-
-            best_opt_perf, best_opt_llm = -1, None
-            for llm in candidate_llms:
-                q_perf = performance_lookup.get((question, llm))
-                if q_perf is not None and q_perf > best_opt_perf:
-                    best_opt_perf, best_opt_llm = q_perf, llm
-            if best_opt_llm is not None:
-                oi = input_tokens_lookup.get((question, best_opt_llm))
-                oo = output_tokens_lookup.get((question, best_opt_llm))
-                if oi and oo:
-                    opt_cost.append(oi * config[best_opt_llm]["input_cost"] + oo * config[best_opt_llm]["output_cost"])
-                else:
-                    opt_cost.append(in_t * config[best_llm]["input_cost"] + out_t * config[best_llm]["output_cost"])
-            else:
-                opt_cost.append(in_t * config[best_llm]["input_cost"] + out_t * config[best_llm]["output_cost"])
-
-        avg_performance = np.mean(final_performance)
-        total_cost = np.sum(final_cost)
-        opt_cost_total = np.sum(opt_cost)
-        print(f"Performance: {avg_performance}  Total Cost: {total_cost}  Opt Cost: {opt_cost_total}")
-        return avg_performance, total_cost, opt_cost_total, chosen_llms_out, routing_df
-
-    # --- MIRT inference path ---
     llm_embeddings, query_embeddings, cold_embeddings, relevance_embeddings, llm_id_map, query_id_map = load_embeddings(emb_name)
 
     dim_map = {"open": 1536, "zhipu": 512, "bge": 1024, "bert": 768}
@@ -680,12 +591,13 @@ def compute_mirt_performance_estimates(emb_name, test_path, a, lamda=0.0, task=N
     cdm.load(str(MODELS_PATH / f"mirt_{emb_name}.snapshot"))
     print("Loaded MIRT model")
 
-    routing_records = []
     unique_questions = test_data['question'].unique()
-    print(f"Total unique questions: {len(unique_questions)}")
+    print(f"Processing {len(unique_questions)} unique questions across {len(candidate_llms)} LLMs...")
 
-    for question in unique_questions:
-        candidates = []
+    routing_records = []
+    for q_idx, question in enumerate(unique_questions):
+        if (q_idx + 1) % 50 == 0:
+            print(f"Processed {q_idx + 1}/{len(unique_questions)} questions...")
         for llm_name in candidate_llms:
             llm_vec, q_vec, cold_vec, _ = map_ids_to_vectors(
                 llm_name, question, llm_embeddings, query_embeddings,
@@ -693,10 +605,6 @@ def compute_mirt_performance_estimates(emb_name, test_path, a, lamda=0.0, task=N
             )
             q_vec = (1 - lamda) * q_vec + lamda * cold_vec
             perf_pred = cdm.generate(torch.Tensor(llm_vec), torch.Tensor(q_vec))
-            cost_llm = config[llm_name]["output_cost"] * 1e5
-            score = a * perf_pred + b * cost_llm
-            candidates.append((llm_name, score, perf_pred, cost_llm))
-
             routing_records.append({
                 'question': question,
                 'llm_name': llm_name,
@@ -705,24 +613,110 @@ def compute_mirt_performance_estimates(emb_name, test_path, a, lamda=0.0, task=N
                 'actual_performance': performance_lookup.get((question, llm_name)),
             })
 
-        best_llm_name, _, _, best_cost = max(candidates, key=lambda x: x[1])
-        perf = performance_lookup.get((question, best_llm_name))
-        in_t = input_tokens_lookup.get((question, best_llm_name))
-        out_t = output_tokens_lookup.get((question, best_llm_name))
+    print(f"Completed! Generated {len(routing_records)} routing records.")
+    routing_df = pd.DataFrame(routing_records)
 
-        if perf is not None and in_t is not None and out_t is not None:
-            final_performance.append(perf)
-            final_cost.append(in_t * config[best_llm_name]["input_cost"] + out_t * config[best_llm_name]["output_cost"])
-            chosen_llms_out.append(best_llm_name)
-            opt_cost.append(best_cost)
+    save_dir = BASE_PATH.parent / "results" / "performance_estimates"
+    save_dir.mkdir(parents=True, exist_ok=True)
+    save_path = save_dir / f"mirt_{emb_name}_{test_path}.csv"
+    routing_df.to_csv(save_path, index=False)
+    print(f"Saved routing dataframe to {save_path}")
+
+    return routing_df
+
+
+def evaluate_routing(routing_df, test_path, a, task=None, candidate_llms=None,
+                     prediction_label='performance_prediction'):
+    """
+    Select the best LLM per question from a precomputed performance-estimates DataFrame
+    using the objective: a * prediction - (1-a) * cost.
+
+    Args:
+        routing_df: DataFrame from any compute_*_performance_estimates function.
+            Required columns: question, llm_name, llm_cost, and prediction_label.
+        test_path: Test split name (e.g., 'test1') — used to load ground-truth costs.
+        a: Performance weight in [0, 1].
+        task: Optional task filter applied to both routing_df and ground-truth data.
+        candidate_llms: LLMs to consider (None = all in routing_df).
+        prediction_label: Column to use as the performance signal.
+
+    Returns:
+        avg_performance, total_cost, opt_cost, chosen_llms
+    """
+    test_data = pd.read_csv(DATA_PATH / f"{test_path}.csv")
+    if task is not None:
+        test_data = test_data[test_data['task'] == task]
+        valid_qs = test_data['question'].unique()
+        routing_df = routing_df[routing_df['question'].isin(valid_qs)]
+
+    if candidate_llms is None:
+        candidate_llms = routing_df['llm_name'].unique().tolist()
+
+    performance_lookup = {(r['question'], r['llm']): r['performance'] for _, r in test_data.iterrows()}
+    input_tokens_lookup = {(r['question'], r['llm']): r['input_tokens'] for _, r in test_data.iterrows()}
+    output_tokens_lookup = {(r['question'], r['llm']): r['output_tokens'] for _, r in test_data.iterrows()}
+
+    required_cols = ['question', 'llm_name', 'llm_cost']
+    missing = [c for c in required_cols if c not in routing_df.columns]
+    if missing:
+        raise ValueError(f"routing_df missing columns: {missing}")
+    if prediction_label not in routing_df.columns and 'performance_prediction' not in routing_df.columns:
+        raise ValueError(f"Column '{prediction_label}' not found in routing_df")
+
+    b = -(1 - a)
+    final_performance, final_cost, chosen_llms_out, opt_cost = [], [], [], []
+
+    for q_idx, question in enumerate(routing_df['question'].unique()):
+        if (q_idx + 1) % 1000 == 0:
+            print(f"Processing question {q_idx + 1}...")
+
+        records = routing_df[routing_df['question'] == question].to_dict('records')
+        if not records:
+            continue
+
+        best_record, best_score = None, float('-inf')
+        for rec in records:
+            perf_pred = rec.get(prediction_label) if prediction_label in rec else rec.get('performance_prediction')
+            if perf_pred is None:
+                raise ValueError(f"Column '{prediction_label}' not found in routing_df")
+            score = a * perf_pred + b * config[rec['llm_name']]["output_cost"] * 1e5
+            if score > best_score:
+                best_score, best_record = score, rec
+
+        if best_record is None:
+            continue
+        best_llm = best_record['llm_name']
+        perf = performance_lookup.get((question, best_llm))
+        in_t = input_tokens_lookup.get((question, best_llm))
+        out_t = output_tokens_lookup.get((question, best_llm))
+        if perf is None or in_t is None or out_t is None:
+            continue
+
+        final_performance.append(perf)
+        final_cost.append(in_t * config[best_llm]["input_cost"] + out_t * config[best_llm]["output_cost"])
+        chosen_llms_out.append(best_llm)
+
+        best_opt_perf, best_opt_llm = -1, None
+        for llm in candidate_llms:
+            q_perf = performance_lookup.get((question, llm))
+            if q_perf is not None and q_perf > best_opt_perf:
+                best_opt_perf, best_opt_llm = q_perf, llm
+        if best_opt_llm is not None:
+            oi = input_tokens_lookup.get((question, best_opt_llm))
+            oo = output_tokens_lookup.get((question, best_opt_llm))
+            opt_cost.append(
+                oi * config[best_opt_llm]["input_cost"] + oo * config[best_opt_llm]["output_cost"]
+                if oi and oo else
+                in_t * config[best_llm]["input_cost"] + out_t * config[best_llm]["output_cost"]
+            )
+        else:
+            opt_cost.append(in_t * config[best_llm]["input_cost"] + out_t * config[best_llm]["output_cost"])
 
     avg_performance = np.mean(final_performance)
     total_cost = np.sum(final_cost)
-    opt_cost_total = np.sum(opt_cost) / 1e5
+    opt_cost_total = np.sum(opt_cost)
     print(f"Performance: {avg_performance}  Total Cost: {total_cost}  Opt Cost: {opt_cost_total}")
-
-    routing_df = pd.DataFrame(routing_records)
-    return avg_performance, total_cost, opt_cost_total, chosen_llms_out, routing_df
+    return avg_performance, total_cost, opt_cost_total, chosen_llms_out
 
 
 if __name__ == "__main__":
@@ -731,7 +725,6 @@ if __name__ == "__main__":
                         help="Router type: mirt | xgboost | knn")
     parser.add_argument("--emb_name", type=str, default="bert")
     parser.add_argument("--test_path", type=str, default="test1")
-    parser.add_argument("--a", type=float, default=0.8, help="Performance weight (mirt only)")
     parser.add_argument("--lamda", type=float, default=0.0, help="Cold-start mixing weight (mirt/xgboost)")
     parser.add_argument("--n_bootstrap", type=int, default=100, help="Bootstrap samples (xgboost/knn)")
     parser.add_argument("--k_neighbors", type=int, default=40, help="k nearest neighbours (knn only)")
@@ -743,9 +736,8 @@ if __name__ == "__main__":
         compute_mirt_performance_estimates(
             emb_name=args.emb_name,
             test_path=args.test_path,
-            a=args.a,
-            lamda=args.lamda,
             task=args.task,
+            lamda=args.lamda,
             candidate_llms=args.candidate_llms,
         )
     elif args.router == "xgboost":
