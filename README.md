@@ -1,27 +1,27 @@
 # LLM Routing Pipeline
 
-Pipeline for **LLM performance estimation** and **routing** (per-query cost/performance sweeps and batch GPU/cost optimization). Training and evaluation use **Dataset 1** from Song et al. (2025) (IRT-Router), stored under `data/irt_data/` and tracked with **Git LFS** (see [`data/README.md`](data/README.md)).
+Pipeline for **LLM performance estimation** and **routing** (per-query cost/performance sweeps and batch GPU/cost optimization). Training and evaluation use **Dataset 1** from Song et al. (2025) (IRT-Router). **Do not commit those CSVs here** — download them from **[Mercidaiha/IRT-Router `data/`](https://github.com/Mercidaiha/IRT-Router/tree/main/data)** into `data/irt_data/` (see [`data/README.md`](data/README.md)).
 
 ## Quick start
 
 ```bash
 cd llm_routing
-git lfs install
-git lfs pull   # materialize Dataset 1 CSVs if clone used LFS pointers only
 python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+Download **Dataset 1** into `data/irt_data/` (see [`data/README.md`](data/README.md) for `curl` one-liners from the IRT-Router repo).
+
 Run all CLI examples **from this directory** (`llm_routing/`) so imports and paths resolve.
 
 ## What is committed
 
-- **`data/irt_data/*.csv`** — Dataset 1, via **Git LFS** (install [Git LFS](https://git-lfs.com) before clone/push).
-- **Tracked in plain Git:** Python sources, `notebooks/`, `utils/map/*.csv`, `data/README.md`.
+**Tracked in Git:** Python sources, `notebooks/`, `utils/map/*.csv`, `data/README.md`.
 
-**Gitignored** (large or regenerable; not in version control):
+**Not in Git** (local only; see `data/README.md` and `.gitignore`):
 
+- **`data/irt_data/*.csv`** — Dataset 1 from [IRT-Router `data/`](https://github.com/Mercidaiha/IRT-Router/tree/main/data)
 - `utils/bert_embeddings/*.pkl`, `utils/cold/*.pkl`, `utils/relevance/*.pkl` — embeddings / auxiliary pickles used by training and `test_models`
 - `results/` — trained snapshots, performance-estimate CSVs, routing outputs (reproduced by the steps below)
 
@@ -30,8 +30,8 @@ Run all CLI examples **from this directory** (`llm_routing/`) so imports and pat
 ```
 llm_routing/
 ├── data/
-│   ├── README.md           # Dataset 1 (Git LFS)
-│   └── irt_data/           # train.csv, test1.csv, test2.csv (Git LFS)
+│   ├── README.md           # how to fetch Dataset 1 from IRT-Router
+│   └── irt_data/           # train.csv, test1.csv, test2.csv (local; gitignored)
 ├── train/                  # Training scripts (MIRT, XGBoost)
 ├── test/                   # Performance estimates on test splits
 ├── routing/                # Per-query + batch routing
@@ -43,6 +43,8 @@ llm_routing/
 ```
 
 ## Step 1: Model performance estimates
+
+Download **`train.csv`**, **`test1.csv`**, and **`test2.csv`** from [IRT-Router `data/`](https://github.com/Mercidaiha/IRT-Router/tree/main/data) into `data/irt_data/` (commands in [`data/README.md`](data/README.md)) before training or running `test_models`.
 
 ### A. Train the performance model
 
