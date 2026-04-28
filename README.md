@@ -13,16 +13,18 @@ pip install -r requirements.txt
 
 Download **Dataset 1** into `data/irt_data/` (see [`data/README.md`](data/README.md) for `curl` one-liners from the IRT-Router repo).
 
+Download **utils** artifacts (embeddings, cold-start, relevance, maps) from **[IRT-Router `utils/`](https://github.com/Mercidaiha/IRT-Router/tree/main/utils)** — see [`utils/README.md`](utils/README.md) for `curl` commands and folder layout.
+
 Run all CLI examples **from this directory** (`llm_routing/`) so imports and paths resolve.
 
 ## What is committed
 
-**Tracked in Git:** Python sources, `notebooks/`, `utils/map/*.csv`, `data/README.md`.
+**Tracked in Git:** Python sources, `notebooks/`, `utils/map/*.csv` (you may overwrite from upstream; see [`utils/README.md`](utils/README.md)), `data/README.md`, `utils/README.md`.
 
-**Not in Git** (local only; see `data/README.md` and `.gitignore`):
+**Not in Git** (local only; see `data/README.md`, [`utils/README.md`](utils/README.md), and `.gitignore`):
 
 - **`data/irt_data/*.csv`** — Dataset 1 from [IRT-Router `data/`](https://github.com/Mercidaiha/IRT-Router/tree/main/data)
-- `utils/bert_embeddings/*.pkl`, `utils/cold/*.pkl`, `utils/relevance/*.pkl` — embeddings / auxiliary pickles used by training and `test_models`
+- **`utils/bert_embeddings/*.pkl`, `utils/cold/*.pkl`, `utils/relevance/*.pkl`** — from [IRT-Router `utils/`](https://github.com/Mercidaiha/IRT-Router/tree/main/utils)
 - `results/` — trained snapshots, performance-estimate CSVs, routing outputs (reproduced by the steps below)
 
 ## Repository structure
@@ -36,7 +38,7 @@ llm_routing/
 ├── test/                   # Performance estimates on test splits
 ├── routing/                # Per-query + batch routing
 │   └── solver/             # CVXPY batch optimizer
-├── utils/                  # ID maps; large pickles gitignored (see above)
+├── utils/                  # embeddings, maps, etc. (see utils/README.md; pkls from IRT-Router)
 ├── notebooks/              # batch_routing, per_query_routing, plotting
 ├── results/                # Generated (gitignored)
 └── requirements.txt
@@ -44,7 +46,10 @@ llm_routing/
 
 ## Step 1: Model performance estimates
 
-Download **`train.csv`**, **`test1.csv`**, and **`test2.csv`** from [IRT-Router `data/`](https://github.com/Mercidaiha/IRT-Router/tree/main/data) into `data/irt_data/` (commands in [`data/README.md`](data/README.md)) before training or running `test_models`.
+Before training or running `test_models`:
+
+1. Download **`train.csv`**, **`test1.csv`**, and **`test2.csv`** from [IRT-Router `data/`](https://github.com/Mercidaiha/IRT-Router/tree/main/data) into `data/irt_data/` (commands in [`data/README.md`](data/README.md)).
+2. Download **utils** (embeddings, cold, relevance, maps as needed) from [IRT-Router `utils/`](https://github.com/Mercidaiha/IRT-Router/tree/main/utils) (commands in [`utils/README.md`](utils/README.md)).
 
 ### A. Train the performance model
 

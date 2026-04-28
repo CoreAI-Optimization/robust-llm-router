@@ -22,4 +22,6 @@ for f in train.csv test1.csv test2.csv; do
 done
 ```
 
+Also download **utils** (embeddings, etc.) from [IRT-Router `utils/`](https://github.com/Mercidaiha/IRT-Router/tree/main/utils) — see [`../utils/README.md`](../utils/README.md).
+
 Then run the training and evaluation steps in the root [`README.md`](../README.md).
