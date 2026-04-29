@@ -4,6 +4,20 @@ Pipeline for **LLM performance estimation** and **routing** (per-query cost/perf
 
 ## Quick start
 
+Install Git LFS if you don't have it:
+
+```bash
+# macOS
+brew install git-lfs
+git lfs install
+
+# Linux
+sudo apt install git-lfs
+git lfs install
+```
+
+Then clone and set up:
+
 ```bash
 git clone https://github.com/CoreAI-Optimization/robust-llm-router.git
 cd robust-llm-router
