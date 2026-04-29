@@ -16,7 +16,7 @@ sudo apt install git-lfs
 git lfs install
 ```
 
-Then clone and set up:
+Then clone and set up (requires **Python 3.10+**):
 
 ```bash
 git clone https://github.com/CoreAI-Optimization/robust-llm-router.git
