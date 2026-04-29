@@ -128,19 +128,19 @@ llms = [
 def load_embeddings(embeddings_dir):
     with open(BASE_PATH.parent / f"utils/{embeddings_dir}_embeddings/llm_embeddings.pkl", "rb") as f:
         llm_embeddings_data = pickle.load(f)
-    llm_embeddings = {llm["index"]: np.array(llm["embedding"]) for llm in llm_embeddings_data}
-    
+    llm_embeddings = {llm["index"]: np.array(llm["embedding"], dtype=np.float32) for llm in llm_embeddings_data}
+
     with open(BASE_PATH.parent / f"utils/{embeddings_dir}_embeddings/query_embeddings.pkl", "rb") as f:
         query_embeddings_data = pickle.load(f)
-    query_embeddings = {query["index"]: np.array(query["embedding"]) for query in query_embeddings_data}
-    
+    query_embeddings = {query["index"]: np.array(query["embedding"], dtype=np.float32) for query in query_embeddings_data}
+
     with open(BASE_PATH.parent / f"utils/relevance/relevance_vectors_cluster_test_{embeddings_dir}.pkl", "rb") as f:
         relevance_embeddings_data = pickle.load(f)
-    relevance_embeddings = {relevance["index"]: np.array(relevance["relevance_vector"]) for relevance in relevance_embeddings_data}
-    
+    relevance_embeddings = {relevance["index"]: np.array(relevance["relevance_vector"], dtype=np.float32) for relevance in relevance_embeddings_data}
+
     with open(BASE_PATH.parent / f"utils/cold/test_avg_embeddings_{embeddings_dir}.pkl", "rb") as f:
         cold_embeddings_data = pickle.load(f)
-    cold_embeddings = {cold["index"]: np.array(cold["avg_embedding"]) for cold in cold_embeddings_data}
+    cold_embeddings = {cold["index"]: np.array(cold["avg_embedding"], dtype=np.float32) for cold in cold_embeddings_data}
     
     llm_id_map = pd.read_csv(BASE_PATH.parent / f"utils/map/llm.csv", index_col="name").to_dict()["index"]
     query_id_map = pd.read_csv(BASE_PATH.parent / f"utils/map/query.csv", index_col="question").to_dict()["index"]
@@ -524,7 +524,7 @@ def load_train_query_embeddings(emb_name):
     
     with open(BASE_PATH.parent / f"utils/{emb_name}_embeddings/query_embeddings.pkl", "rb") as f:
         query_embeddings_data = pickle.load(f)
-    query_embeddings = {query["index"]: np.array(query["embedding"]) for query in query_embeddings_data}
+    query_embeddings = {query["index"]: np.array(query["embedding"], dtype=np.float32) for query in query_embeddings_data}
     
     query_id_map = pd.read_csv(BASE_PATH.parent / f"utils/map/query.csv", index_col="question").to_dict()["index"]
     

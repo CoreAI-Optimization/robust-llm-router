@@ -16,10 +16,10 @@ MODELS_DIR.mkdir(parents=True, exist_ok=True)
 def load_embeddings(embeddings_dir):
     with open(ROOT / f"utils/{embeddings_dir}_embeddings/llm_embeddings.pkl", "rb") as f:
         llm_embeddings_data = pickle.load(f)
-    llm_embeddings = {llm["index"]: np.array(llm["embedding"]) for llm in llm_embeddings_data}
+    llm_embeddings = {llm["index"]: np.array(llm["embedding"], dtype=np.float32) for llm in llm_embeddings_data}
     with open(ROOT / f"utils/{embeddings_dir}_embeddings/query_embeddings.pkl", "rb") as f:
         query_embeddings_data = pickle.load(f)
-    query_embeddings = {query["index"]: np.array(query["embedding"]) for query in query_embeddings_data}
+    query_embeddings = {query["index"]: np.array(query["embedding"], dtype=np.float32) for query in query_embeddings_data}
 
     llm_id_map = pd.read_csv(ROOT / "utils/map/llm.csv", index_col="name").to_dict()["index"]
     query_id_map = pd.read_csv(ROOT / "utils/map/query.csv", index_col="question").to_dict()["index"]
@@ -34,7 +34,7 @@ def map_ids_to_vectors(data, llm_embeddings, query_embeddings, llm_id_map, query
         query_id = query_id_map[row['question']]
         llm_vectors.append(llm_embeddings[llm_id])
         query_vectors.append(query_embeddings[query_id])
-    return np.array(llm_vectors), np.array(query_vectors)
+    return np.array(llm_vectors, dtype=np.float32), np.array(query_vectors, dtype=np.float32)
 
 
 def get_embedding_dims(emb_name):
