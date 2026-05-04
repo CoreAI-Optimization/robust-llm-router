@@ -83,9 +83,25 @@ param_grid = {
 
 logging.getLogger().setLevel(logging.INFO)
 
+# Train main model on full data when bootstrap is enabled
+if n_bootstrap > 1:
+    print("\n" + "="*70)
+    print("Training main model on full training data")
+    print("="*70)
+    main_train_set = DataLoader(TensorDataset(
+        torch.tensor(train_llm, dtype=torch.float32),
+        torch.tensor(train_query, dtype=torch.float32),
+        torch.tensor(train_data["performance"].values, dtype=torch.float32)
+    ), batch_size=batch_size, shuffle=True)
+    main_cdm = XGBoost(llm_input_dim=llm_dim, item_input_dim=query_dim, xgb_params=xgb_params)
+    main_cdm.train(main_train_set, epoch=200)
+    main_model_name = f"xgboost_{emb_name}.snapshot"
+    main_cdm.save(MODELS_DIR / main_model_name)
+    print(f"Main model saved to {MODELS_DIR / main_model_name}")
+
 # Bootstrap training loop
-for bootstrap_idx in range(n_bootstrap):        
-    
+for bootstrap_idx in range(n_bootstrap):
+
     # Resample training data with replacement for bootstrap
     if n_bootstrap > 1:
 
