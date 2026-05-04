@@ -64,6 +64,8 @@ llm_routing/
 python3 train/train_xgboost.py --embedding bert --bootstrap 100
 ```
 
+This trains the main XGBoost model on the full training data first (`xgboost_bert.snapshot`), then trains 100 bootstrapped models (`xgboost_bert_bootstrap_queries_0.snapshot` … `xgboost_bert_bootstrap_queries_99.snapshot`).
+
 **MIRT (no bootstrap):**
 
 ```bash
