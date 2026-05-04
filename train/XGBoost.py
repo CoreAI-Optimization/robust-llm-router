@@ -274,7 +274,7 @@ class XGBoost():
     def save(self, filepath):
         """
         Save the XGBoost model to a file.
-        
+
         Parameters
         ----------
         filepath : str
@@ -282,24 +282,23 @@ class XGBoost():
         """
         if self.model is None:
             raise ValueError("Model not trained yet. Call train() first.")
-        
-        # Save both the model and the parameters
+
         save_dict = {
-            'model': self.model,
+            'model_bytes': self.model.get_booster().save_raw(raw_format='json'),
             'xgb_params': self.xgb_params,
             'llm_input_dim': self.llm_input_dim,
             'item_input_dim': self.item_input_dim,
         }
-        
+
         with open(filepath, 'wb') as f:
             pickle.dump(save_dict, f)
-        
+
         logging.info(f"Saved XGBoost model to {filepath}")
 
     def load(self, filepath):
         """
         Load the XGBoost model from a file.
-        
+
         Parameters
         ----------
         filepath : str
@@ -307,11 +306,15 @@ class XGBoost():
         """
         with open(filepath, 'rb') as f:
             save_dict = pickle.load(f)
-        
-        self.model = save_dict['model']
+
         self.xgb_params = save_dict['xgb_params']
         self.llm_input_dim = save_dict.get('llm_input_dim')
         self.item_input_dim = save_dict.get('item_input_dim')
-        
+
+        booster = xgb.Booster()
+        booster.load_model(bytearray(save_dict['model_bytes']))
+        self.model = xgb.XGBRegressor(**self.xgb_params)
+        self.model._Booster = booster
+
         logging.info(f"Loaded XGBoost model from {filepath}")
 
