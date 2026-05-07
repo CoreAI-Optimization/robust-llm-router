@@ -1,2 +1,2 @@
-from .MIRT import MIRT
 from .XGBoost import XGBoost
+from .MIRT import MIRT

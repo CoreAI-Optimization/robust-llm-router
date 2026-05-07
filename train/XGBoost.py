@@ -1,4 +1,6 @@
 import logging
+import os
+import tempfile
 import numpy as np
 import xgboost as xgb
 from tqdm import tqdm
@@ -314,11 +316,17 @@ class XGBoost():
         self.llm_input_dim = save_dict.get('llm_input_dim')
         self.item_input_dim = save_dict.get('item_input_dim')
 
-        # Use xgb.Booster directly — more stable across XGBoost versions
-        # than the sklearn wrapper's load_model()
-        booster = xgb.Booster()
-        booster.load_model(bytearray(save_dict['model_bytes']))
-        self.model = booster
+        # Load via temp file to avoid bytearray/OpenMP conflict between
+        # PyTorch and XGBoost 3.x when both are loaded in the same process
+        with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as tmp:
+            tmp.write(save_dict['model_bytes'])
+            tmp_path = tmp.name
+        try:
+            booster = xgb.Booster()
+            booster.load_model(tmp_path)
+            self.model = booster
+        finally:
+            os.unlink(tmp_path)
 
         logging.info(f"Loaded XGBoost model from {filepath}")
 
