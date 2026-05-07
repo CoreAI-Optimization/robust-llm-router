@@ -311,10 +311,10 @@ class XGBoost():
         self.llm_input_dim = save_dict.get('llm_input_dim')
         self.item_input_dim = save_dict.get('item_input_dim')
 
-        booster = xgb.Booster()
-        booster.load_model(bytearray(save_dict['model_bytes']))
-        self.model = xgb.XGBRegressor(**self.xgb_params)
-        self.model._Booster = booster
+        # 'nthread' was removed in XGBoost 3.x; filter it out for compatibility
+        safe_params = {k: v for k, v in self.xgb_params.items() if k != 'nthread'}
+        self.model = xgb.XGBRegressor(**safe_params)
+        self.model.load_model(bytearray(save_dict['model_bytes']))
 
         logging.info(f"Loaded XGBoost model from {filepath}")
 

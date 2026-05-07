@@ -66,7 +66,6 @@ xgb_params = {
     "gamma": 0.2,
     'min_child_weight': 5, # 1
     'n_jobs': 1,  # Single-threaded to prevent system overload during CV
-    'nthread': 1  # Single-threaded to prevent system overload during CV
 }
 
 # Define parameter grid for hyperparameter tuning
