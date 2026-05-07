@@ -261,9 +261,12 @@ class XGBoost():
         
         # Concatenate features
         X = np.concatenate([llm, item], axis=1)
-        
-        # Get predictions
-        pred = self.model.predict(X)
+
+        # Get predictions — use DMatrix if model is a Booster (loaded from file)
+        if isinstance(self.model, xgb.Booster):
+            pred = self.model.predict(xgb.DMatrix(X))
+        else:
+            pred = self.model.predict(X)
         
         # Return scalar for single sample, list for batch (matching MIRT behavior)
         if single_sample and len(pred) == 1:
@@ -311,10 +314,11 @@ class XGBoost():
         self.llm_input_dim = save_dict.get('llm_input_dim')
         self.item_input_dim = save_dict.get('item_input_dim')
 
-        # 'nthread' was removed in XGBoost 3.x; filter it out for compatibility
-        safe_params = {k: v for k, v in self.xgb_params.items() if k != 'nthread'}
-        self.model = xgb.XGBRegressor(**safe_params)
-        self.model.load_model(bytearray(save_dict['model_bytes']))
+        # Use xgb.Booster directly — more stable across XGBoost versions
+        # than the sklearn wrapper's load_model()
+        booster = xgb.Booster()
+        booster.load_model(bytearray(save_dict['model_bytes']))
+        self.model = booster
 
         logging.info(f"Loaded XGBoost model from {filepath}")
 
